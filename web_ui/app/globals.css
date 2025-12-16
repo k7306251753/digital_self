@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #000000;
+  --sidebar-bg: #f9f9f9;
+  --sidebar-text: #000000;
+  --sidebar-hover: #e5e5e5;
+  --user-msg-bg: #f3f4f6;
+  --bot-msg-bg: #ffffff;
+  --border-color: #e5e7eb;
+  --input-bg: #ffffff;
+  --input-border: #e5e5e5;
+  --icon-color: #8e8ea0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #343541;
+    --foreground: #ececf1;
+    --sidebar-bg: #202123;
+    --sidebar-text: #ececf1;
+    --sidebar-hover: #2A2B32;
+    --user-msg-bg: #343541;
+    --bot-msg-bg: #444654;
+    --border-color: #4b4c54;
+    /* Slightly lighter than bg */
+    --input-bg: #40414f;
+    --input-border: rgba(32, 33, 35, .5);
+    --icon-color: #d9d9e3;
+    --brand-purple: #ab68ff;
+    /* For Digital Self branding */
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Söhne', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Ubuntu', 'Cantarell', 'Noto Sans', 'sans-serif', 'Helvetica Neue', 'Arial', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Custom utilities */
+.chat-message {
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.dark .chat-message {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chat-input-area {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, var(--background) 20%);
+}
+
+.typing-cursor::after {
+  content: '▋';
+  animation: blink 1s step-start infinite;
+  margin-left: 2px;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}

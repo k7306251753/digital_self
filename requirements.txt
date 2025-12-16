@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+ollama
+vosk
+sounddevice
+numpy
+pydantic
+psycopg2-binary
