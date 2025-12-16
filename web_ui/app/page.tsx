@@ -160,8 +160,15 @@ export default function Home() {
       recognitionRef.current = recognition;
     }
 
+    // Dynamic API Base URL
+    const getApiBaseUrl = () => {
+       if (typeof window === 'undefined') return 'http://localhost:8000'; // Server side fallback
+       return `http://${window.location.hostname}:8000`;
+    };
+    const API_BASE_URL = getApiBaseUrl();
+
     // Fetch Models
-    fetch('http://localhost:8000/models')
+    fetch(`${API_BASE_URL}/models`)
       .then(res => res.json())
       .then(data => {
         if (data.models && data.models.length > 0) {
@@ -197,7 +204,12 @@ export default function Home() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8000/chat', {
+      const getApiBaseUrl = () => {
+         if (typeof window === 'undefined') return 'http://localhost:8000';
+         return `http://${window.location.hostname}:8000`;
+      };
+      
+      const response = await fetch(`${getApiBaseUrl()}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMsg, model: currentModel }),

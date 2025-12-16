@@ -15,6 +15,10 @@ A persistent, local-first AI that replicates the user's personality, remembers s
 3.  **PostgreSQL**: Running locally or accessible.
 4.  **Ollama**: Running with `llama3` pulled (`ollama pull llama3`).
 
+## Documentation
+
+For a comprehensive guide on the system architecture, component details, and advanced usage, please refer to the [Full Documentation](DOCUMENTATION.md).
+
 ## Setup
 
 ### 1. Backend
