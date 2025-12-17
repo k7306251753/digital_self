@@ -6,3 +6,5 @@ sounddevice
 numpy
 pydantic
 psycopg2-binary
+pyttsx3
+SpeechRecognition

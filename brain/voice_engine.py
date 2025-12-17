@@ -15,10 +15,11 @@ class VoiceEngine:
         self.worker_thread.start()
 
         self.recognizer = sr.Recognizer()
-        # Optimize for faster interaction
-        self.recognizer.energy_threshold = 300  # Default 300, lower -> more sensitive
-        self.recognizer.pause_threshold = 0.6   # Default 0.8, lower -> faster cut-off
+        # Optimized for speed
+        self.recognizer.energy_threshold = 300  
+        self.recognizer.pause_threshold = 0.5   # Reduced from 0.8/0.6 for snapier response
         self.recognizer.dynamic_energy_threshold = True
+        self.recognizer.non_speaking_duration = 0.4 # Faster cut-off
         
         self.microphone = sr.Microphone()
     
@@ -64,9 +65,10 @@ class VoiceEngine:
             # We can split long paragraphs if needed, but the main app handles sentences now.
             self.speech_queue.put(text)
 
-    def listen(self):
+    def listen(self, model="base"):
         """
         Listens to microphone with a timeout to prevent freezing.
+        Allows specifying model size (tiny, base, small, etc.)
         """
         # If currently speaking, we might not want to listen to ourselves.
         # But blocking here might annoy the user if they want to interrupt.
@@ -85,8 +87,9 @@ class VoiceEngine:
                 return ""
         
         try:
-            print("Transcribing...")
-            text = self.recognizer.recognize_whisper(audio, model="base")
+            print(f"Transcribing ({model})...")
+            # Using specified model. 'tiny' is much faster but less accurate.
+            text = self.recognizer.recognize_whisper(audio, model=model)
             return text
         except sr.RequestError as e:
             return f"Error: {e}"

@@ -1,4 +1,5 @@
 from . import db
+import re
 
 class MemoryController:
     def __init__(self):
@@ -34,8 +35,9 @@ class MemoryController:
             cleaned = cleaned.replace(" was ", " is ")
             cleaned = cleaned.replace(" were ", " are ")
         
-        # "I got X" patterns - keep as is but clean up
-        # "I am X" -> "am X" or keep contextually
+        # Strip trailing punctuation which might be left over (like "2022?")
+        # We keep some like ')' if it matches '(' but for now just aggressive right strip of sentence enders
+        cleaned = cleaned.rstrip('.?!,;:')
         
         return cleaned.strip()
 
@@ -47,12 +49,29 @@ class MemoryController:
         normalized = user_input.strip()
         lower_input = normalized.lower()
         
-        # explicit command detection
-        command_prefixes = ["remember that", "remember:", "learn that", "store this:"]
+        # 1. Clean starting punctuation like "Remember," -> "remember"
+        # We want to check prefixes against a version that has no leading non-alphanumeric chars (except space)
+        clean_start = re.sub(r'^[^a-zA-Z0-9\s]+', '', lower_input).strip()
         
+        # Explicit command prefixes
+        command_prefixes = [
+            "remember that", "remember:", "learn that", "store this:", 
+            "can you remember", "please remember", "could you remember",
+            "i want you to remember", "make a note that"
+        ]
+        
+        # Check explicit long prefixes first
         for prefix in command_prefixes:
-            if lower_input.startswith(prefix):
-                 content = normalized[len(prefix):].strip()
+            if clean_start.startswith(prefix):
+                 # Find approximate location in original string to preserve case in content
+                 # We look for the prefix in the lower_input
+                 idx = lower_input.find(prefix)
+                 if idx == -1: continue # Should not happen if startswith matches, unless punctuation logic differs
+                 
+                 content = normalized[idx + len(prefix):].strip()
+                 # Clean leading punctuation from content like ": " or ", " or " that"
+                 content = re.sub(r'^[\s,:]+', '', content)
+                 
                  if not content:
                      return True, "I need something to remember."
                  
@@ -62,14 +81,18 @@ class MemoryController:
                  db.add_memory(category, fact)
                  return True, f"I have stored that in my memory as a {category}."
         
-        if lower_input.startswith("remember "):
-             content = normalized[9:].strip() 
-             if content:
-                 # Extract clean fact
-                 fact = self._extract_fact(content)
-                 category = self._classify(fact)
-                 db.add_memory(category, fact)
-                 return True, f"I have put '{fact}' into long-term memory."
+        # Catch basic "Remember X" if not caught above
+        if clean_start.startswith("remember") and not clean_start.startswith("remembering"):
+             idx = lower_input.find("remember")
+             if idx != -1:
+                 content = normalized[idx + 8:].strip()
+                 content = re.sub(r'^[\s,:]+', '', content)
+                 
+                 if content:
+                     fact = self._extract_fact(content)
+                     category = self._classify(fact)
+                     db.add_memory(category, fact)
+                     return True, f"I have put '{fact}' into long-term memory."
 
         return False, None
 
@@ -81,7 +104,13 @@ class MemoryController:
         if len(content.split()) < 3: return # Skip short greetings like "hi"
         
         # Avoid storing questions as facts
+        # However, if input was "Can you remember X?" and fell through, we might want it? 
+        # But process_input should catch that now.
         if "?" in content: return
+        
+        # Don't store if it looks like a command/navigation that wasn't caught
+        if content.lower().startswith("when") or content.lower().startswith("what") or content.lower().startswith("how"):
+             return
         
         # Extract clean fact before storing
         fact = self._extract_fact(content)
