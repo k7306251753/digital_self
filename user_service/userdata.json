@@ -1,0 +1,98 @@
+{
+  "info": {
+    "name": "Participant API",
+    "_postman_id": "a5ad77ff-65a7-4a89-bbba-89e4e2a57b0c",
+    "description": "CRUD APIs for Participant with nested Address, Email, and PhoneNumber entities",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Participant",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userName\": \"krishna01\",\n  \"fullName\": \"Neeli Krishna\",\n  \"paxProfileImageUrl\": \"http://example.com/image.jpg\",\n  \"password\": \"securepass\",\n  \"department\": \"Engineering\",\n  \"userType\": \"Admin\",\n  \"bankAccountNumber\": 1234567890,\n  \"addresses\": [\n    {\n      \"street\": \"123 Main St\",\n      \"city\": \"Hyderabad\",\n      \"state\": \"Telangana\",\n      \"country\": \"India\",\n      \"zipCode\": \"500001\"\n    },\n    {\n      \"street\": \"456 Second St\",\n      \"city\": \"Bangalore\",\n      \"state\": \"Karnataka\",\n      \"country\": \"India\",\n      \"zipCode\": \"560001\"\n    }\n  ],\n  \"emails\": [\n    {\n      \"email\": \"krishna.work@example.com\",\n      \"type\": \"WORK\"\n    },\n    {\n      \"email\": \"krishna.home@example.com\",\n      \"type\": \"HOME\"\n    }\n  ],\n  \"phoneNumbers\": [\n    {\n      \"number\": \"+919000000001\",\n      \"type\": \"WORK\"\n    },\n    {\n      \"number\": \"+919000000002\",\n      \"type\": \"HOME\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/empengagement/createpax",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["empengagement", "createpax"]
+        }
+      }
+    },
+    {
+      "name": "Get All Participants",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/empengagement/participants",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["empengagement", "participants"]
+        }
+      }
+    },
+    {
+      "name": "Get Participant By ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/empengagement/participants/1",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["empengagement", "participants", "1"]
+        }
+      }
+    },
+    {
+      "name": "Update Participant",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userName\": \"krishnaUpdated\",\n  \"fullName\": \"Neeli Krishna Updated\",\n  \"paxProfileImageUrl\": \"http://example.com/image_new.jpg\",\n  \"password\": \"newpass\",\n  \"department\": \"Product\",\n  \"userType\": \"User\",\n  \"bankAccountNumber\": 9876543210,\n  \"addresses\": [\n    {\n      \"street\": \"789 Third St\",\n      \"city\": \"Chennai\",\n      \"state\": \"Tamil Nadu\",\n      \"country\": \"India\",\n      \"zipCode\": \"600001\"\n    }\n  ],\n  \"emails\": [\n    {\n      \"email\": \"krishna.updated@example.com\",\n      \"type\": \"WORK\"\n    }\n  ],\n  \"phoneNumbers\": [\n    {\n      \"number\": \"+919000000003\",\n      \"type\": \"HOME\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/empengagement/participants/1",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["empengagement", "participants", "1"]
+        }
+      }
+    },
+    {
+      "name": "Delete Participant",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/empengagement/participants/1",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["empengagement", "participants", "1"]
+        }
+      }
+    }
+  ]
+}

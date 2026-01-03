@@ -24,6 +24,7 @@ export default function Home() {
   const [models, setModels] = useState<any[]>([]);
   const [currentModel, setCurrentModel] = useState('llama3.2:1b');
   const [isContinuousMode, setIsContinuousMode] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Ref to track continuous mode inside useEffect/callbacks
   const isContinuousModeRef = useRef(isContinuousMode);
@@ -162,8 +163,8 @@ export default function Home() {
 
     // Dynamic API Base URL
     const getApiBaseUrl = () => {
-       if (typeof window === 'undefined') return 'http://localhost:8000'; // Server side fallback
-       return `http://${window.location.hostname}:8000`;
+      if (typeof window === 'undefined') return 'http://localhost:8000'; // Server side fallback
+      return `http://${window.location.hostname}:8000`;
     };
     const API_BASE_URL = getApiBaseUrl();
 
@@ -173,8 +174,8 @@ export default function Home() {
       .then(data => {
         if (data.models && data.models.length > 0) {
           setModels(data.models);
-          // Default to lighter model if available, safely checking name
-          const lightModel = data.models.find((m: any) => m?.name?.includes('1b'))?.name || data.models[0].name;
+          // Default to lighter model if available, safely checking name (property is 'model' in Ollama API)
+          const lightModel = data.models.find((m: any) => m?.model?.includes('1b'))?.model || data.models[0].model;
           setCurrentModel(lightModel);
         }
       })
@@ -204,14 +205,18 @@ export default function Home() {
     setIsLoading(true);
 
     try {
+      console.log(`[Chat] Sending message: "${userMsg}" | UserID: ${currentUser?.userId}`);
       const getApiBaseUrl = () => {
-         if (typeof window === 'undefined') return 'http://localhost:8000';
-         return `http://${window.location.hostname}:8000`;
+        if (typeof window === 'undefined') return 'http://localhost:8000';
+        return `http://${window.location.hostname}:8000`;
       };
-      
+
       const response = await fetch(`${getApiBaseUrl()}/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': currentUser?.userId?.toString() || ''
+        },
         body: JSON.stringify({ message: userMsg, model: currentModel }),
       });
 
@@ -304,6 +309,8 @@ export default function Home() {
         isOpen={isSidebarOpen}
         toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         onNewChat={() => setMessages([])}
+        activeUser={currentUser}
+        onUserChange={setCurrentUser}
       />
 
       {/* Main Content */}
@@ -331,9 +338,26 @@ export default function Home() {
         )}
 
         <div className="w-full h-12 hidden md:flex items-center justify-center border-b border-transparent sticky top-0 z-10">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-lg hover:bg-[var(--sidebar-hover)] cursor-pointer transition-colors">
-            <span className="font-semibold text-lg">{currentModel}</span>
-            <span className="text-gray-400 text-sm">Local</span>
+          <div className="flex items-center gap-2 px-3 py-1 rounded-lg hover:bg-[var(--sidebar-hover)] cursor-pointer transition-colors relative group">
+            <select
+              value={currentModel}
+              onChange={(e) => setCurrentModel(e.target.value)}
+              className="appearance-none bg-transparent border-none outline-none font-semibold text-lg cursor-pointer pr-4"
+            >
+              {models.length > 0 ? (
+                models.map((m: any) => (
+                  <option key={m.model} value={m.model} className="bg-[var(--background)] text-[var(--foreground)]">
+                    {m.model}
+                  </option>
+                ))
+              ) : (
+                <option value={currentModel}>{currentModel}</option>
+              )}
+            </select>
+            <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+            </div>
+            <span className="text-gray-400 text-sm ml-2">Local</span>
           </div>
         </div>
 

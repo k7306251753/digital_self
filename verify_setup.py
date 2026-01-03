@@ -13,26 +13,25 @@ print("Verifying Digital Self Setup...")
 # 1. Check Python
 check_step("Python Version", sys.version_info >= (3, 10), f"({'.'.join(map(str, sys.version_info[:3]))})")
 
-# 2. Check Memory (ChromaDB)
+# 2. Check Memory (PostgreSQL)
 print("\n-- Check Memory --")
 try:
-    from brain.memory import Memory
-    mem = Memory(collection_name="test_verification")
-    if mem.collection:
-        check_step("ChromaDB Initialization", True)
-        try:
-            mem.add_memory("test_memory")
+    from brain import db
+    db.init_db()
+    check_step("PostgreSQL Connection", True)
+    
+    # Try to add a test memory
+    try:
+        mem_id = db.add_memory("FACT", "Testing verification")
+        if mem_id:
             check_step("Add Memory", True)
-            res = mem.retrieve_context("test")
-            check_step("Retrieve Memory", True, f"(found {len(res)} results)" if res else "")
-        except Exception as e:
-            check_step("Memory Logic", False, f"({e})")
-    else:
-        check_step("ChromaDB Initialization", False, "(Returned None)")
-except ImportError:
-    check_step("Brain Module Import", False)
+            db.delete_memory(mem_id)
+        else:
+            check_step("Add Memory", False, "(Failed to get memory ID)")
+    except Exception as e:
+        check_step("Memory Logic", False, f"({e})")
 except Exception as e:
-    check_step("Memory Check Crash", False, f"({e})")
+    check_step("PostgreSQL Connection", False, f"({e})")
 
 # 3. Check LLM (Ollama)
 print("\n-- Check LLM --")
@@ -46,10 +45,16 @@ try:
         # Simple chat
         try:
             resp = brain.chat("Hello")
-            if isinstance(resp, str) and "Error" not in resp:
-                 check_step("Basic Chat", True, f"(Response len: {len(resp)})")
+            # Handle object/dict
+            content = ""
+            if hasattr(resp, 'message'): content = resp.message.content
+            elif isinstance(resp, dict) and 'message' in resp: content = resp['message']['content']
+            elif isinstance(resp, str): content = resp
+            
+            if content and "Error" not in content:
+                 check_step("Basic Chat", True, f"(Response: {content[:30]}...)")
             else:
-                 check_step("Basic Chat", False, f"(Error in response: {resp})")
+                 check_step("Basic Chat", False, f"(Invalid content: {content})")
         except Exception as e:
             check_step("Chat Exception", False, f"({e})")
     else:

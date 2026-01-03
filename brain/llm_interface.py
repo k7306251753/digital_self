@@ -1,7 +1,7 @@
 import ollama
 
 class LLMInterface:
-    def __init__(self, model_name="llama3", system_prompt="You are a digital clone of the user."):
+    def __init__(self, model_name="llama3.2:1b", system_prompt="You are a digital clone of the user."):
         self.model_name = model_name
         self.system_prompt = system_prompt
 
