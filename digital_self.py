@@ -39,7 +39,7 @@ class DigitalSelf:
             user_id = None
 
         # 1. Check for Memory Command
-        is_command, response = self.memory_controller.process_input(user_input)
+        is_command, response = self.memory_controller.process_input(user_input, user_id=user_id)
         if is_command:
             if user_id: self.user_service.log_message(user_id, current_user.get('userName'), 'assistant', response)
             def confirmation_gen(): yield response
@@ -56,7 +56,7 @@ class DigitalSelf:
         print("[DEBUG] No intent detected, falling through to LLM.")
 
         # 2. Retrieve Context
-        context_str = self.memory_controller.retrieve_context(user_input)
+        context_str = self.memory_controller.retrieve_context(user_input, user_id=user_id)
         
         # 3. Inject context into message
         full_input = f"{context_str}\nUser: {user_input}"
@@ -97,66 +97,60 @@ class DigitalSelf:
         """
         input_lower = user_input.lower()
         
-        # 1. Recognize Intent: "recognize/recognise [name] [comment]"
+        # 1. Recognize Intent: "recognize/recognise [name] [comment]" or "give [points] to [name]"
         import re
-        rec_match = re.search(r"\brecogni[sz]e\b", input_lower)
+        rec_match = re.search(r"\brecogni[sz]e\b|\bgive\b", input_lower)
         if rec_match:
-            print(f"[DEBUG] Recognition Keyword matched. UserID: {user_id}")
+            print(f"[DEBUG] Recognition/Give Keyword matched. UserID: {user_id}")
             if not user_id:
                 return True, "I need to know who you are before you can recognize someone. Please select a user in the sidebar."
             
-            # Much more flexible regex: recognize followed by a name (can be multiple words) and then a comment
             users = self.user_service.get_all_users()
             target_username = None
             comment = "Excellent work!"
+            points = 100 # Default
             
             # Extract text after the keyword
-            text_after_recognize = input_lower[rec_match.end():].strip()
+            text_after_keyword = input_lower[rec_match.end():].strip()
             
+            # Try to extract points if using "give X points to Y"
+            point_match = re.search(r'(\d+)\s*(?:points|pts)?', text_after_keyword)
+            if point_match:
+                try:
+                    points = int(point_match.group(1))
+                    # Remove the points part from name/comment search
+                    text_after_keyword = text_after_keyword.replace(point_match.group(0), "").strip()
+                except: pass
+
             for u in users:
                 full_name = u.get('fullName', '').lower()
                 u_name = u.get('userName', '').lower()
-                
-                # Check for exact Match or partial match
-                # Use first word of full name if it's long
                 first_name = full_name.split()[0] if full_name else ""
                 
-                # Logic: Is the full name, username, or first name present after 'recognize'?
-                # Or is the text after 'recognize' STARTING with something similar?
-                if (full_name and full_name in text_after_recognize) or \
-                   (u_name and u_name in text_after_recognize) or \
-                   (first_name and len(first_name) > 3 and first_name in text_after_recognize):
+                # Check for Match
+                if (full_name and full_name in text_after_keyword) or \
+                   (u_name and u_name in text_after_keyword) or \
+                   (first_name and len(first_name) > 3 and first_name in text_after_keyword):
                     
                     target_username = u.get('userName')
-                    # Find which one matched to extract comment
-                    match_str = full_name if full_name in text_after_recognize else \
-                                (u_name if u_name in text_after_recognize else first_name)
+                    match_str = full_name if full_name in text_after_keyword else \
+                                (u_name if u_name in text_after_keyword else first_name)
                     
-                    comment_area = text_after_recognize.replace(match_str, "", 1).strip()
+                    comment_area = text_after_keyword.replace(match_str, "", 1).strip()
                     if comment_area:
-                        # Handle "120 points" logic - the user said "120 points"
-                        # My backend currently doesn't support variable points in this call (fixed at 100)
-                        # but I should at least save it in the comment or log it.
-                        comment = re.sub(r'^(with|comment|comments|message|saying|for|along with)?\s*', '', comment_area, flags=re.IGNORECASE).strip()
+                        comment = re.sub(r'^(to|for|with|saying|along with|is|as)?\s*', '', comment_area, flags=re.IGNORECASE).strip()
                     break
-                
-                # Handling typos like "NEET" for "Neeli"
-                # If the first word of text_after_recognize is very similar to first_name
-                words_after = text_after_recognize.split()
-                if words_after and first_name:
-                    first_word_input = words_after[0]
-                    # Simple similarity: if they share 3+ characters and are same length-ish
-                    if len(first_word_input) > 3 and first_word_input[:3] == first_name[:3]:
-                        target_username = u.get('userName')
-                        comment_area = " ".join(words_after[1:])
-                        comment = re.sub(r'^(with|comment|comments|message|saying|for|along with)?\s*', '', comment_area, flags=re.IGNORECASE).strip() or "Excellent work!"
-                        break
-
+            
             if target_username:
-                result = self.user_service.recognize(user_id, target_username, comment)
+                # Fetch current user to check for self-recognition
+                current_user = self.user_service.get_user_by_id(user_id)
+                if current_user and target_username.lower() == current_user.get('userName', '').lower():
+                    return True, "You can't recognize yourself! That's too easy. ;)"
+
+                result = self.user_service.recognize(user_id, target_username, comment, points)
                 return True, result
             
-            return True, "Who should I recognize? Please provide their full name or username."
+            return True, "Who should I recognize? Please provide their name or username."
 
         # 2. Recognition History Intent
         if any(keyword in input_lower for keyword in ["how many recognition", "show my recognitions", "received recognition"]):
@@ -201,3 +195,7 @@ class DigitalSelf:
     def list_users(self):
         """Direct access to user list for API endpoints."""
         return self.user_service.get_all_users()
+
+    def learn(self, content: str, user_id=None):
+        """Explicitly learn a new fact."""
+        return self.memory_controller.store_observation(content, user_id=user_id)

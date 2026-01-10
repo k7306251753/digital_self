@@ -45,7 +45,7 @@ def test_database():
     
     # Test 3: Add Memory
     try:
-        mem_id = db.add_memory("TEST", "This is a comprehensive test memory", 1.0, "automated_test")
+        mem_id = db.add_memory(category="TEST", content="This is a comprehensive test memory", confidence=1.0, source="automated_test")
         all_passed &= print_result(mem_id is not None, f"Memory added with ID: {mem_id}")
     except Exception as e:
         all_passed &= print_result(False, f"Add memory failed: {e}")
@@ -199,8 +199,9 @@ def test_llm_interface():
     if is_connected:
         try:
             response = llm.chat("Say 'test'", stream=False)
-            all_passed &= print_result(isinstance(response, (str, dict)), 
-                                       "Non-streaming chat returns response")
+            # Handle newer ollama versions returning ChatResponse
+            is_valid = isinstance(response, (str, dict)) or hasattr(response, 'message')
+            all_passed &= print_result(is_valid, "Non-streaming chat returns response")
             print(f"   Response type: {type(response).__name__}")
         except Exception as e:
             all_passed &= print_result(False, f"Non-streaming chat failed: {e}")

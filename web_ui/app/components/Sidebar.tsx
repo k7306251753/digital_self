@@ -8,6 +8,8 @@ type SidebarProps = {
     onNewChat: () => void;
     onUserChange: (user: any) => void;
     activeUser: any;
+    onLogout: () => void;
+    onSelectChat: (chatId: string) => void;
 };
 
 type Memory = {
@@ -15,23 +17,49 @@ type Memory = {
     category: string;
     content: string;
     created_at: string;
+    // ...
 };
 
-const MOCK_HISTORY = [
-    { id: '1', title: 'Previous Chat 1', date: 'Today' },
-    { id: '2', title: 'React Components', date: 'Yesterday' },
-    { id: '3', title: 'Python Scripts', date: 'Previous 7 Days' },
-];
+type ChatSession = {
+    id: string;
+    title: string;
+    updated_at: string;
+};
 
-export default function Sidebar({ isOpen, toggleSidebar, onNewChat, onUserChange, activeUser }: SidebarProps) {
-    const [history] = useState(MOCK_HISTORY);
+export default function Sidebar({ isOpen, toggleSidebar, onNewChat, onUserChange, activeUser, onLogout, onSelectChat }: SidebarProps) {
+    const [chats, setChats] = useState<ChatSession[]>([]);
     const [view, setView] = useState<'chats' | 'memories'>('chats');
     const [memories, setMemories] = useState<Memory[]>([]);
     const [participants, setParticipants] = useState<any[]>([]);
 
+    const fetchChats = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('http://localhost:8000/chats', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setChats(data);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    // Poll for chats occasionally or just on mount/view switch
+    useEffect(() => {
+        if (view === 'chats') fetchChats();
+    }, [view, isOpen]);
+
     const fetchMemories = async () => {
         try {
-            const res = await fetch('http://localhost:8000/memories');
+            const token = localStorage.getItem('token');
+            const res = await fetch('http://localhost:8000/memories', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
             if (res.ok) {
                 const data = await res.json();
                 setMemories(data);
@@ -53,10 +81,6 @@ export default function Sidebar({ isOpen, toggleSidebar, onNewChat, onUserChange
                 const pList = Array.isArray(data) ? data : (data.value && Array.isArray(data.value) ? data.value : []);
 
                 setParticipants(pList);
-                if (!activeUser && pList.length > 0) {
-                    console.log("[Sidebar] Auto-selecting first user:", pList[0]);
-                    onUserChange(pList[0]);
-                }
             } else {
                 console.error("[Sidebar] Fetch failed with status:", res.status);
             }
@@ -113,15 +137,20 @@ export default function Sidebar({ isOpen, toggleSidebar, onNewChat, onUserChange
                         onClick={toggleView}
                         className={`text-xs font-semibold px-2 py-1 rounded ${view === 'memories' ? 'bg-[var(--sidebar-hover)] text-[var(--foreground)]' : 'text-gray-500 hover:text-[var(--foreground)]'}`}
                     >
-                        Dataset
+                        Memories
                     </button>
                 </div>
 
                 {view === 'chats' ? (
                     <div className="flex flex-col gap-2">
-                        <div className="px-3 py-2 text-xs font-semibold text-gray-500">Today</div>
-                        {history.filter(h => h.date === 'Today').map(chat => (
-                            <button key={chat.id} className="flex items-center gap-3 px-3 py-3 text-sm rounded-md hover:bg-[var(--sidebar-hover)] overflow-hidden text-ellipsis whitespace-nowrap">
+                        <div className="px-3 py-2 text-xs font-semibold text-gray-500">Recent Chats</div>
+                        {chats.length === 0 && <div className="px-3 text-xs text-gray-500">No previous chats.</div>}
+                        {chats.map(chat => (
+                            <button
+                                key={chat.id}
+                                onClick={() => onSelectChat(chat.id)}
+                                className="flex items-center gap-3 px-3 py-3 text-sm rounded-md hover:bg-[var(--sidebar-hover)] overflow-hidden text-ellipsis whitespace-nowrap text-left"
+                            >
                                 <MessageSquare size={16} />
                                 <span className="truncate">{chat.title}</span>
                             </button>
@@ -139,26 +168,27 @@ export default function Sidebar({ isOpen, toggleSidebar, onNewChat, onUserChange
                         ))}
                     </div>
                 )}
+
+                {/* Colleagues section removed as per user request */}
             </div>
 
-            <div className="p-3 border-t border-[var(--border-color)]">
-                <div className="flex flex-col gap-2">
-                    <label className="text-[10px] uppercase font-bold text-gray-500 px-3">Switch Logged-in User</label>
-                    <select
-                        value={activeUser?.userId || ''}
-                        onChange={(e) => {
-                            const user = participants.find(p => p.userId.toString() === e.target.value);
-                            if (user) onUserChange(user);
-                        }}
-                        className="w-full bg-[var(--sidebar-hover)] text-sm rounded-md px-3 py-2 outline-none border-none cursor-pointer text-[var(--foreground)]"
-                    >
-                        {participants.map(p => (
-                            <option key={p.userId} value={p.userId} className="bg-[var(--sidebar-bg)]">
-                                {p.fullName} (@{p.userName}) - {p.points} pts
-                            </option>
-                        ))}
-                    </select>
-                </div>
+            <div className="p-4 border-t border-[var(--border-color)]">
+                {activeUser ? (
+                    <div className="flex flex-col gap-1 px-3">
+                        <div className="text-[10px] uppercase font-bold text-gray-400">Logged in as</div>
+                        <div className="text-sm font-semibold text-[var(--foreground)]">{activeUser.fullName}</div>
+                        <div className="text-[11px] text-[#19c37d] font-medium">{activeUser.points} points</div>
+                    </div>
+                ) : (
+                    <div className="px-3 text-xs text-gray-500">Not logged in</div>
+                )}
+                <button
+                    onClick={onLogout}
+                    className="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-md transition-colors border border-red-200 dark:border-red-900/20"
+                >
+                    <LogOut size={16} />
+                    <span>Logout</span>
+                </button>
             </div>
         </aside>
     );

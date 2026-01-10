@@ -41,7 +41,7 @@ class MemoryController:
         
         return cleaned.strip()
 
-    def process_input(self, user_input: str):
+    def process_input(self, user_input: str, user_id=None):
         """
         Analyzes input for memory commands.
         Returns: (is_command, response_message)
@@ -78,7 +78,7 @@ class MemoryController:
                  # Extract clean fact
                  fact = self._extract_fact(content)
                  category = self._classify(fact)
-                 db.add_memory(category, fact)
+                 db.add_memory(category, fact, user_id=user_id)
                  return True, f"I have stored that in my memory as a {category}."
         
         # Catch basic "Remember X" if not caught above
@@ -91,12 +91,12 @@ class MemoryController:
                  if content:
                      fact = self._extract_fact(content)
                      category = self._classify(fact)
-                     db.add_memory(category, fact)
+                     db.add_memory(category, fact, user_id=user_id)
                      return True, f"I have put '{fact}' into long-term memory."
 
         return False, None
 
-    def store_observation(self, content: str):
+    def store_observation(self, content: str, user_id=None):
         """
         Implicitly stores an observation/fact from the user.
         We only store if it looks informative (simple heuristic).
@@ -118,7 +118,8 @@ class MemoryController:
             return  # Skip if extraction results in too short content
         
         category = self._classify(fact)
-        db.add_memory(category, fact)
+        db.add_memory(category, fact, user_id=user_id)
+        return f"Memory added: {fact} ({category})"
 
     def _classify(self, content: str) -> str:
         """
@@ -136,11 +137,11 @@ class MemoryController:
         
         return "FACT" # Default
 
-    def retrieve_context(self, query: str) -> str:
+    def retrieve_context(self, query: str, user_id=None) -> str:
         """
         Retrieves relevant memories for a prompt.
         """
-        memories = db.search_memories(query)
+        memories = db.search_memories(query, user_id=user_id)
         if not memories:
             return ""
         
@@ -150,5 +151,5 @@ class MemoryController:
         
         return "\n".join(context_lines)
 
-    def get_all_memories(self):
-        return db.get_memories(limit=100) # limit for safety
+    def get_all_memories(self, user_id=None):
+        return db.get_memories(user_id=user_id, limit=100) # limit for safety

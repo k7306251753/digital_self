@@ -24,7 +24,7 @@ public class RecognitionService {
     private EmailService emailService;
 
     @Transactional
-    public String recognizeUser(Long senderId, String receiverUsername, String comment) {
+    public String recognizeUser(Long senderId, String receiverUsername, String comment, Long points) {
         Participant sender = paxReposetry.findById(senderId).orElse(null);
         Participant receiver = paxReposetry.getByUserName(receiverUsername);
 
@@ -32,12 +32,12 @@ public class RecognitionService {
             return "Sender not found.";
         if (receiver == null)
             return "Receiver not found.";
-        if (sender.getPoints() < 100)
+        if (sender.getPoints() < points)
             return "Not enough points.";
 
         // Transfer points
-        sender.setPoints(sender.getPoints() - 100);
-        receiver.setPoints(receiver.getPoints() + 100);
+        sender.setPoints(sender.getPoints() - points);
+        receiver.setPoints(receiver.getPoints() + points);
 
         paxReposetry.save(sender);
         paxReposetry.save(receiver);
@@ -46,7 +46,7 @@ public class RecognitionService {
         Recognition recognition = new Recognition();
         recognition.setSender(sender);
         recognition.setReceiver(receiver);
-        recognition.setPoints(100L);
+        recognition.setPoints(points);
         recognition.setComment(comment);
         recognition.setTimestamp(LocalDateTime.now());
         recognitionRepository.save(recognition);
@@ -58,7 +58,7 @@ public class RecognitionService {
         String body = "Congratulations " + receiver.getFullName() + ",\n\n" +
                 "You have been recognized in the DayMaker by " + sender.getFullName() + ".\n\n" +
                 "Comment: " + comment + "\n\n" +
-                "You earned 100 points!\n\n" +
+                "You earned " + points + " points!\n\n" +
                 "Best regards,\n" +
                 "The DayMaker Team";
 

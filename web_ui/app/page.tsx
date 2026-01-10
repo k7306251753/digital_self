@@ -1,5 +1,6 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Send, Mic, Paperclip, StopCircle, Menu, X, Monitor, Image as ImageIcon, Search as SearchIcon, GraduationCap, Phone } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 
@@ -33,6 +34,101 @@ export default function Home() {
   useEffect(() => {
     isContinuousModeRef.current = isContinuousMode;
   }, [isContinuousMode]);
+
+  const router = useRouter();
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+
+  const fetchChatMessages = async (chatId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:8000/chats/${chatId}/messages`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const loadedMessages = data.map((m: any) => ({
+          role: m.role,
+          content: m.content
+        }));
+        setMessages(loadedMessages);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSelectChat = (chatId: string) => {
+    setCurrentChatId(chatId);
+    fetchChatMessages(chatId);
+    if (isSidebarOpen && window.innerWidth < 768) setIsSidebarOpen(false);
+  };
+
+  const handleNewChat = () => {
+    setCurrentChatId(null);
+    setMessages([]);
+    router.push('/');
+  };
+  const parseJwt = (token: string) => {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(jsonPayload);
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const fetchParticipants = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const payload = parseJwt(token);
+    const loggedInUserId = payload?.userId;
+    console.log("[Auth] Logged in UserId from Token:", loggedInUserId);
+
+    try {
+      const res = await fetch('http://localhost:8089/empengagement/participants', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const pList = Array.isArray(data) ? data : (data.value || []);
+
+        // Find and set the correct logged-in user
+        if (loggedInUserId) {
+          const matchedUser = pList.find((p: any) => p.userId.toString() === loggedInUserId.toString());
+          if (matchedUser) {
+            console.log("[Auth] Matched user details:", matchedUser);
+            setCurrentUser(matchedUser);
+          }
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Auth Guard - Placed AFTER function definitions
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      router.push('/login');
+    } else {
+      fetchParticipants().finally(() => setIsAuthChecked(true));
+    }
+  }, []);
+
+  // Removed early return to prevent hook errors
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    router.push('/login');
+  };
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -84,6 +180,12 @@ export default function Home() {
         // Wait 800ms for system audio to clear before uncorking mic
       };
 
+      utterance.onerror = (e) => {
+        console.error('TTS Error:', e);
+        isSpeakingRef.current = false;
+        if (onEnd) onEnd(); // Restart anyway so loop doesn't die
+      };
+
       window.speechSynthesis.speak(utterance);
     } else {
       if (onEnd) onEnd();
@@ -113,22 +215,29 @@ export default function Home() {
     if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
       const recognition = new window.webkitSpeechRecognition();
       recognition.continuous = false;
-      recognition.interimResults = false;
+      recognition.interimResults = true; // Enable fast feedback
       recognition.lang = 'en-US';
 
       recognition.onresult = (event: any) => {
         // IGNORE if we are speaking (Double safety)
         if (isSpeakingRef.current) return;
 
-        const transcript = event.results[0][0].transcript;
-        // If continuous mode, we don't just set input, we submit!
-        if (isContinuousModeRef.current) {
-          // We pass the transcript directly to handleSubmit
-          handleSubmit(undefined, transcript);
-        } else {
-          setInput(prev => prev + (prev ? ' ' : '') + transcript);
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          }
         }
-        setIsListening(false);
+
+        if (finalTranscript) {
+          // If continuous mode, we don't just set input, we submit!
+          if (isContinuousModeRef.current) {
+            handleSubmit(undefined, finalTranscript);
+          } else {
+            setInput(prev => prev + (prev ? ' ' : '') + finalTranscript);
+          }
+          setIsListening(false);
+        }
       };
 
       recognition.onerror = (event: any) => {
@@ -154,7 +263,7 @@ export default function Home() {
             if (!isSpeakingRef.current && recognitionRef.current) {
               try { recognitionRef.current.start(); setIsListening(true); } catch (e) { }
             }
-          }, 500);
+          }, 50); // Reduced from 500ms
         }
       };
 
@@ -193,10 +302,7 @@ export default function Home() {
 
   const handleSubmit = async (e?: React.FormEvent, overrideText?: string) => {
     if (e) e.preventDefault();
-
-    // Use overrideText if provided, otherwise input
     const textToSend = overrideText !== undefined ? overrideText : input;
-
     if (!textToSend.trim() || isLoading) return;
 
     const userMsg = textToSend.trim();
@@ -205,19 +311,40 @@ export default function Home() {
     setIsLoading(true);
 
     try {
-      console.log(`[Chat] Sending message: "${userMsg}" | UserID: ${currentUser?.userId}`);
       const getApiBaseUrl = () => {
         if (typeof window === 'undefined') return 'http://localhost:8000';
         return `http://${window.location.hostname}:8000`;
       };
+      const token = localStorage.getItem('token');
+
+      let activeChatId = currentChatId;
+      if (!activeChatId) {
+        // Create new chat
+        const title = userMsg.length > 20 ? userMsg.substring(0, 20) + '...' : userMsg;
+        try {
+          const createRes = await fetch(`${getApiBaseUrl()}/chats?title=${encodeURIComponent(title)}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (createRes.ok) {
+            const newChat = await createRes.json();
+            activeChatId = newChat.id;
+            setCurrentChatId(activeChatId);
+          }
+        } catch (e) { console.error("Failed to create chat", e); }
+      }
 
       const response = await fetch(`${getApiBaseUrl()}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-User-Id': currentUser?.userId?.toString() || ''
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ message: userMsg, model: currentModel }),
+        body: JSON.stringify({
+          message: userMsg,
+          model: currentModel,
+          session_id: activeChatId
+        }),
       });
 
       if (!response.ok) throw new Error('Network response was not ok');
@@ -226,8 +353,6 @@ export default function Home() {
       if (!reader) throw new Error('No reader available');
 
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
-
-      // Fix for Double Icon: Stop showing "Thinking..." once we start receiving text
       setIsLoading(false);
 
       let fullResponse = '';
@@ -240,13 +365,10 @@ export default function Home() {
 
         setMessages(prev => {
           const newMessages = [...prev];
-          // CRITICAL FIX: Create a shallow copy of the object to avoid mutating 'prev' state
-          // This prevents double-rendering/duplication in React Strict Mode
           const lastMsgIndex = newMessages.length - 1;
           const lastMsg = { ...newMessages[lastMsgIndex] };
           lastMsg.content += text;
           newMessages[lastMsgIndex] = lastMsg;
-
           return newMessages;
         });
       }
@@ -254,29 +376,40 @@ export default function Home() {
       if (fullResponse.length < 500) {
         speak(fullResponse, () => {
           if (isContinuousModeRef.current) {
-            // Increased delay to 1.5s to absolutely ensure no echo
             setTimeout(() => {
-              if (recognitionRef.current) {
+              if (recognitionRef.current && !isListening) {
                 try { recognitionRef.current.start(); setIsListening(true); } catch (e) { }
               }
-            }, 1500);
+            }, 100); // Reduced from 1000ms
           }
         });
       } else {
         if (isContinuousModeRef.current) {
           setTimeout(() => {
-            if (recognitionRef.current) {
+            if (recognitionRef.current && !isListening) {
               try { recognitionRef.current.start(); setIsListening(true); } catch (e) { }
             }
-          }, 2000);
+          }, 100); // Reduced from 2000ms
         }
       }
 
     } catch (error) {
       console.error('Error:', error);
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Is the backend running?' }]);
+      const errorMsg = 'Sorry, I encountered an error. Is the backend running?';
+      setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
+
+      speak(errorMsg, () => {
+        if (isContinuousModeRef.current) {
+          setTimeout(() => {
+            if (recognitionRef.current && !isListening) {
+              try { recognitionRef.current.start(); setIsListening(true); } catch (e) { }
+            }
+          }, 100); // Reduced from 1000ms
+        }
+      });
     } finally {
       setIsLoading(false);
+      fetchParticipants();
     }
   };
 
@@ -301,6 +434,8 @@ export default function Home() {
     }
   };
 
+  if (!isAuthChecked) return null; // Or a loading spinner
+
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)] font-sans">
 
@@ -308,9 +443,12 @@ export default function Home() {
       <Sidebar
         isOpen={isSidebarOpen}
         toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-        onNewChat={() => setMessages([])}
+        onNewChat={handleNewChat}
         activeUser={currentUser}
         onUserChange={setCurrentUser}
+        onLogout={handleLogout}
+        onSelectChat={handleSelectChat}
+        currentChatId={currentChatId ?? undefined}
       />
 
       {/* Main Content */}

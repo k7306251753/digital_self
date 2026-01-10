@@ -22,8 +22,14 @@ public class RecognitionController {
         Long senderId = Long.valueOf(payload.get("senderId").toString());
         String receiverUsername = (String) payload.get("receiverUsername");
         String comment = (String) payload.get("comment");
+        
+        // Extract points, default to 100 if missing
+        Long points = 100L;
+        if (payload.containsKey("points") && payload.get("points") != null) {
+            points = Long.valueOf(payload.get("points").toString());
+        }
 
-        String result = recognitionService.recognizeUser(senderId, receiverUsername, comment);
+        String result = recognitionService.recognizeUser(senderId, receiverUsername, comment, points);
         if (result.startsWith("Successfully")) {
             return ResponseEntity.ok(result);
         } else {

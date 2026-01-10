@@ -11,6 +11,10 @@ public interface PaxService {
 
     List<Participant> findAll();
 
+    Optional<Participant> findByUserName(String userName);
+
+    String authenticate(String username, String password);
+
     Optional<Participant> findById(Long id);
 
     Optional<Participant> update(Long id, Participant participant);

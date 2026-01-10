@@ -28,13 +28,14 @@ class UserServiceConnector:
         except Exception as e:
             print(f"[UserService] Error logging message: {e}")
 
-    def recognize(self, sender_id, receiver_username, comment):
+    def recognize(self, sender_id, receiver_username, comment, points=100):
         """Triggers a recognition event."""
         try:
             payload = {
                 "senderId": sender_id,
                 "receiverUsername": receiver_username,
-                "comment": comment
+                "comment": comment,
+                "points": points
             }
             response = requests.post(f"{self.base_url}/recognize", json=payload)
             response.raise_for_status()
