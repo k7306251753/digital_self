@@ -5,7 +5,7 @@ class LLMInterface:
         self.model_name = model_name
         self.system_prompt = system_prompt
 
-    def chat(self, prompt: str, stream: bool = False, model: str = None):
+    def chat(self, prompt: str, stream: bool = False, model: str = None, history: list = None):
         """
         Generates a response from the LLM.
         """
@@ -17,12 +17,15 @@ class LLMInterface:
             target_model = model if model else self.model_name
             print(f"[LLM] Requesting model: {target_model}")
             
+            # Construct messages with history
+            messages = [{'role': 'system', 'content': self.system_prompt}]
+            if history:
+                messages.extend(history)
+            messages.append({'role': 'user', 'content': prompt})
+            
             response = ollama.chat(
                 model=target_model,
-                messages=[
-                    {'role': 'system', 'content': self.system_prompt},
-                    {'role': 'user', 'content': prompt},
-                ],
+                messages=messages,
                 stream=stream,
                 options={
                     "num_ctx": 1024,       # Reduced context for speed

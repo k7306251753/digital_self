@@ -22,7 +22,7 @@ class DigitalSelf:
         self.memory_controller = MemoryController()
         self.user_service = UserServiceConnector()
 
-    def chat(self, user_input: str, model: str = None, user_id=None):
+    def chat(self, user_input: str, model: str = None, user_id=None, session_id=None):
         """
         Main chat interface.
         """
@@ -61,8 +61,19 @@ class DigitalSelf:
         # 3. Inject context into message
         full_input = f"{context_str}\nUser: {user_input}"
         
-        # 4. Chat with Streaming
-        generator = self.brain.chat(full_input, stream=True, model=model)
+        # 4. Retrieve Chat History
+        history = []
+        if session_id:
+            try:
+                # Fetch last 10 messages for context
+                raw_msgs = db.get_chat_messages(session_id)[-10:] 
+                for m in raw_msgs:
+                    history.append({'role': m['role'], 'content': m['content']})
+            except Exception as e:
+                print(f"[ERROR] Failed to fetch chat history: {e}")
+
+        # 5. Chat with Streaming
+        generator = self.brain.chat(full_input, stream=True, model=model, history=history)
         
         # Wrap generator to log response once finished
         def log_wrapper():
